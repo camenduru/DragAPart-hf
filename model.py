@@ -1255,20 +1255,6 @@ class UNet2DDragConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMi
             )
         elif mid_block_type == "UNetMidBlock2DSimpleCrossAttn":
             raise NotImplementedError
-            self.mid_block = UNetMidBlock2DSimpleCrossAttn(
-                in_channels=block_out_channels[-1],
-                temb_channels=blocks_time_embed_dim,
-                resnet_eps=norm_eps,
-                resnet_act_fn=act_fn,
-                output_scale_factor=mid_block_scale_factor,
-                cross_attention_dim=cross_attention_dim[-1],
-                attention_head_dim=attention_head_dim[-1],
-                resnet_groups=norm_num_groups,
-                resnet_time_scale_shift=resnet_time_scale_shift,
-                skip_time_act=resnet_skip_time_act,
-                only_cross_attention=mid_block_only_cross_attention,
-                cross_attention_norm=cross_attention_norm,
-            )
         elif mid_block_type is None:
             self.mid_block = None
         else:
@@ -1512,11 +1498,6 @@ class UNet2DDragConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMi
         y1 = y1.unsqueeze(-1).unsqueeze(-1)
         y1 = torch.stack([torch.zeros_like(y1) - 1, torch.zeros_like(y1) - 1, y1, y1], dim=2).view(bsz, 4 * self.num_drags, 1, 1)
 
-        # assert torch.all(x_src >= 0) and torch.all(x_src <= 1)
-        # assert torch.all(y_src >= 0) and torch.all(y_src <= 1)
-        # assert torch.all(x_tgt >= 0) and torch.all(x_tgt <= 1)
-        # assert torch.all(y_tgt >= 0) and torch.all(y_tgt <= 1)
-
         value_image = torch.stack([x_src, y_src, x_tgt, y_tgt], dim=2).view(bsz, 4 * self.num_drags, 1, 1)
         value_image = value_image.expand(bsz, 4 * self.num_drags, current_resolution, current_resolution)
 
@@ -1527,18 +1508,6 @@ class UNet2DDragConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMi
 
     def forward(
         self,
-        # sample: torch.FloatTensor,
-        # timestep: Union[torch.Tensor, float, int],
-        # encoder_hidden_states: torch.Tensor,
-        # class_labels: Optional[torch.Tensor] = None,
-        # timestep_cond: Optional[torch.Tensor] = None,
-        # attention_mask: Optional[torch.Tensor] = None,
-        # cross_attention_kwargs: Optional[Dict[str, Any]] = None,
-        # added_cond_kwargs: Optional[Dict[str, torch.Tensor]] = None,
-        # down_block_additional_residuals: Optional[Tuple[torch.Tensor]] = None,
-        # mid_block_additional_residual: Optional[torch.Tensor] = None,
-        # encoder_attention_mask: Optional[torch.Tensor] = None,
-        # return_dict: bool = True,
         x: torch.FloatTensor,
         t: torch.Tensor,
         x_cond: torch.FloatTensor,
@@ -1546,7 +1515,6 @@ class UNet2DDragConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMi
         force_drop_ids: Optional[torch.Tensor] = None,
         hidden_cls: Optional[torch.Tensor] = None,
         drags: Optional[torch.Tensor] = None,
-        save_features: bool = False,
     ) -> torch.Tensor:
         r"""
         The [`UNet2DConditionModel`] forward method.
@@ -1941,11 +1909,10 @@ class UNet2DDragConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMi
         from diffusers.utils import WEIGHTS_NAME
         one_sided_attn = unet_additional_kwargs.pop("one_sided_attn", True) if unet_additional_kwargs is not None else True
         model = cls.from_config(config, **unet_additional_kwargs) if unet_additional_kwargs is not None else cls.from_config(config)
-        model_file = os.path.join(pretrained_model_path, WEIGHTS_NAME)
-        if not os.path.isfile(model_file):
-            raise RuntimeError(f"{model_file} does not exist")
-        
         if load:
+            model_file = os.path.join(pretrained_model_path, WEIGHTS_NAME)
+            if not os.path.isfile(model_file):
+                raise RuntimeError(f"{model_file} does not exist")
             state_dict = torch.load(model_file, map_location="cpu")
             m, u = model.load_state_dict(state_dict, strict=False)
 
