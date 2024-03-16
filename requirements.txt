@@ -9,3 +9,4 @@ tqdm
 transformers
 gradio
 accelerate
+spaces

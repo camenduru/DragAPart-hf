@@ -16,6 +16,8 @@ from torchvision import transforms
 from diffusion import create_diffusion
 from model import UNet2DDragConditionModel
 
+import spaces
+
 
 TITLE = '''DragAPart: Learning a Part-Level Motion Prior for Articulated Objects'''
 DESCRIPTION = """
@@ -93,6 +95,7 @@ def model_init():
     model = model.to("cuda")
     return model
 
+@spaces.GPU
 def sam_segment(predictor, input_image, drags, foreground_points=None):
     image = np.asarray(input_image)
     predictor.set_image(image)
@@ -169,6 +172,7 @@ def preprocess_image(SAM_predictor, img, chk_group, drags):
     processed_img = image_pil.resize((256, 256), Image.LANCZOS)
     return processed_img, new_drags
 
+@spaces.GPU
 def single_image_sample(
     model,
     diffusion,
@@ -399,4 +403,4 @@ with gr.Blocks(title=TITLE) as demo:
                 outputs=[generated_image],
             )
 
-    demo.launch(share=True)
+    demo.launch()
