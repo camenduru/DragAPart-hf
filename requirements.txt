@@ -8,3 +8,4 @@ opencv-python
 tqdm
 transformers
 gradio
+accelerate
