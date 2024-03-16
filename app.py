@@ -98,6 +98,7 @@ def model_init():
 @spaces.GPU
 def sam_segment(predictor, input_image, drags, foreground_points=None):
     image = np.asarray(input_image)
+    predictor = predictor.to("cuda")
     predictor.set_image(image)
 
     with torch.no_grad():
@@ -223,6 +224,7 @@ def single_image_sample(
         samples, _ = samples.chunk(2, dim=0)
     return samples
 
+@spaces.GPU
 def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion, img_cond, seed, cfg_scale, drags_list):
     if img_cond is None:
         gr.Warning("Please preprocess the image first.")
@@ -266,7 +268,7 @@ def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion,
                 break
 
         samples = single_image_sample(
-            model,
+            model.to("cuda"),
             diffusion,
             x_cond,
             cond_clip_features,
