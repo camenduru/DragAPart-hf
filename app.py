@@ -189,12 +189,12 @@ def single_image_sample(
     z = torch.randn(2, 4, 32, 32).to("cuda")
 
     # Prepare input for classifer-free guidance
-    rel = torch.cat([rel, rel], dim=0)
-    x_cond = torch.cat([x_cond, x_cond], dim=0)
-    x_cond_clip = torch.cat([x_cond_clip, x_cond_clip], dim=0)
-    x_cond_extra = torch.cat([x_cond_extra, x_cond_extra], dim=0)
-    drags = torch.cat([drags, drags], dim=0)
-    hidden_cls = torch.cat([hidden_cls, hidden_cls], dim=0)
+    rel = torch.cat([rel, rel], dim=0).to("cuda")
+    x_cond = torch.cat([x_cond, x_cond], dim=0).to("cuda")
+    x_cond_clip = torch.cat([x_cond_clip, x_cond_clip], dim=0).to("cuda")
+    x_cond_extra = torch.cat([x_cond_extra, x_cond_extra], dim=0).to("cuda")
+    drags = torch.cat([drags, drags], dim=0).to("cuda")
+    hidden_cls = torch.cat([hidden_cls, hidden_cls], dim=0).to("cuda")
 
     model_kwargs = dict(
         x_cond=x_cond,
