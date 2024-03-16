@@ -230,6 +230,11 @@ def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion,
         gr.Warning("Please preprocess the image first.")
         return None
 
+    model = model.to("cuda")
+    vae = vae.to("cuda")
+    clip_model = clip_model.to("cuda")
+    clip_vit = clip_vit.to("cuda")
+
     with torch.no_grad():
         torch.manual_seed(seed)
         np.random.seed(seed)
