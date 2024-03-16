@@ -89,7 +89,7 @@ def model_init():
         ),
         load=False,
     )
-    model.load_state_dict(torch.load(model_checkpoint)["model"])
+    model.load_state_dict(torch.load(model_checkpoint, map_location="cpu")["model"])
     model = model.to("cuda")
     return model
 
