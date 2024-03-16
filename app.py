@@ -185,8 +185,11 @@ def single_image_sample(
     drags,
     hidden_cls,
     num_steps=50,
+    vae=None,
 ):
     z = torch.randn(2, 4, 32, 32).to("cuda")
+    if vae is not None:
+        vae = vae.to("cuda")
 
     # Prepare input for classifer-free guidance
     rel = torch.cat([rel, rel], dim=0).to("cuda")
@@ -222,7 +225,10 @@ def single_image_sample(
                 )
 
         samples, _ = samples.chunk(2, dim=0)
-    return samples
+
+    with torch.no_grad():
+        images = vae.decode(samples / 0.18215).sample
+    return ((images + 1)[0].permute(1, 2, 0) * 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)
 
 @spaces.GPU
 def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion, img_cond, seed, cfg_scale, drags_list):
@@ -272,7 +278,7 @@ def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion,
             if idx == 9:
                 break
 
-        samples = single_image_sample(
+        images = single_image_sample(
             model.to("cuda"),
             diffusion,
             x_cond,
@@ -283,11 +289,8 @@ def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion,
             drags,
             cls_embedding,
             num_steps=50,
+            vae=vae,
         )
-
-        with torch.no_grad():
-            images = vae.decode(samples / 0.18215).sample
-        images = ((images + 1)[0].permute(1, 2, 0) * 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)
         return images
 
 
