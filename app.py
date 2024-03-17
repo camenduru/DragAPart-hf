@@ -22,7 +22,7 @@ import spaces
 TITLE = '''DragAPart: Learning a Part-Level Motion Prior for Articulated Objects'''
 DESCRIPTION = """
 <div>
-Try <a href='https://arxiv.org/abs/24xx.xxxxx'><b>DragAPart</b></a> yourself to manipulate your favorite articulated objects in 2 seconds!
+Try <a href='https://arxiv.org/abs/24xx.xxxxx'><b>DragAPart</b></a> yourself to manipulate your favorite articulated objects in seconds!
 </div>
 """
 INSTRUCTION = '''
@@ -185,11 +185,8 @@ def single_image_sample(
     drags,
     hidden_cls,
     num_steps=50,
-    vae=None,
 ):
     z = torch.randn(2, 4, 32, 32).to("cuda")
-    if vae is not None:
-        vae = vae.to("cuda")
 
     # Prepare input for classifer-free guidance
     rel = torch.cat([rel, rel], dim=0).to("cuda")
@@ -226,9 +223,7 @@ def single_image_sample(
 
         samples, _ = samples.chunk(2, dim=0)
 
-    with torch.no_grad():
-        images = vae.decode(samples / 0.18215).sample
-    return ((images + 1)[0].permute(1, 2, 0) * 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)
+    return samples
 
 @spaces.GPU
 def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion, img_cond, seed, cfg_scale, drags_list):
@@ -278,7 +273,7 @@ def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion,
             if idx == 9:
                 break
 
-        images = single_image_sample(
+        samples = single_image_sample(
             model.to("cuda"),
             diffusion,
             x_cond,
@@ -289,9 +284,10 @@ def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion,
             drags,
             cls_embedding,
             num_steps=50,
-            vae=vae,
         )
-        return images
+        with torch.no_grad():
+            images = vae.decode(samples / 0.18215).sample
+        return ((images + 1)[0].permute(1, 2, 0) * 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)
 
 
 sam_predictor = sam_init()
