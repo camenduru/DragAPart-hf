@@ -92,13 +92,11 @@ def model_init():
         load=False,
     )
     model.load_state_dict(torch.load(model_checkpoint, map_location="cpu")["model"])
-    model = model.to("cuda")
-    return model
+    return model.to("cuda")
 
-@spaces.GPU
+@spaces.GPU(duration=10)
 def sam_segment(predictor, input_image, drags, foreground_points=None):
     image = np.asarray(input_image)
-    predictor = predictor.to("cuda")
     predictor.set_image(image)
 
     with torch.no_grad():
@@ -173,7 +171,7 @@ def preprocess_image(SAM_predictor, img, chk_group, drags):
     processed_img = image_pil.resize((256, 256), Image.LANCZOS)
     return processed_img, new_drags
 
-@spaces.GPU
+
 def single_image_sample(
     model,
     diffusion,
@@ -188,8 +186,6 @@ def single_image_sample(
     vae=None,
 ):
     z = torch.randn(2, 4, 32, 32).to("cuda")
-    if vae is not None:
-        vae = vae.to("cuda")
 
     # Prepare input for classifer-free guidance
     rel = torch.cat([rel, rel], dim=0).to("cuda")
@@ -233,9 +229,8 @@ def single_image_sample(
         images = samples
     return ((images + 1)[0].permute(1, 2, 0) * 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)
 
-    return samples
 
-@spaces.GPU
+@spaces.GPU(duration=20)
 def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion, img_cond, seed, cfg_scale, drags_list):
     if img_cond is None:
         gr.Warning("Please preprocess the image first.")
