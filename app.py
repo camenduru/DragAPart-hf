@@ -22,7 +22,7 @@ import spaces
 TITLE = '''DragAPart: Learning a Part-Level Motion Prior for Articulated Objects'''
 DESCRIPTION = """
 <div>
-Try <a href='https://arxiv.org/abs/24xx.xxxxx'><b>DragAPart</b></a> yourself to manipulate your favorite articulated objects in seconds!
+Try <a href='https://dragapart.github.io/'><b>DragAPart</b></a> yourself to manipulate your favorite articulated objects in seconds!
 </div>
 """
 INSTRUCTION = '''
