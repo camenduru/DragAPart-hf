@@ -1,4 +1,3 @@
-from functools import partial
 import os
 from PIL import Image, ImageOps
 import random
@@ -46,6 +45,7 @@ If you have uploaded one of your own images, it is very likely that you will nee
 You should verify that the preprocessed image is object-centric (i.e., clearly contains a single object) and has white background.
 '''
 
+
 def center_and_square_image(pil_image_rgba, drags):
     image = pil_image_rgba
     alpha = np.array(image)[:, :, 3]  # Extract the alpha channel
@@ -70,10 +70,12 @@ def center_and_square_image(pil_image_rgba, drags):
     image = image.resize((256, 256), Image.Resampling.LANCZOS)
     return image, new_drags
 
+
 def sam_init():
     sam_checkpoint = os.path.join(os.path.dirname(__file__), "ckpts", "sam_vit_h_4b8939.pth")
     predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to("cuda"))
     return predictor
+
 
 def model_init():
     model_checkpoint = os.path.join(os.path.dirname(__file__), "ckpts", "drag-a-part-final.pt")
@@ -94,13 +96,24 @@ def model_init():
     model.load_state_dict(torch.load(model_checkpoint, map_location="cpu")["model"])
     return model.to("cuda")
 
+
+sam_predictor = sam_init()
+model = model_init()
+
+vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-ema").to('cuda')
+clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to('cuda')
+clip_vit = CLIPVisionModel.from_pretrained("openai/clip-vit-large-patch14").to('cuda')
+image_processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
+diffusion = create_diffusion(timestep_respacing="", learn_sigma=False)
+
+
 @spaces.GPU(duration=10)
-def sam_segment(predictor, input_image, drags, foreground_points=None):
+def sam_segment(input_image, drags, foreground_points=None):
     image = np.asarray(input_image)
-    predictor.set_image(image)
+    sam_predictor.set_image(image)
 
     with torch.no_grad():
-        masks_bbox, _, _ = predictor.predict(
+        masks_bbox, _, _ = sam_predictor.predict(
             point_coords=foreground_points if foreground_points is not None else None,
             point_labels=np.ones(len(foreground_points)) if foreground_points is not None else None,
             multimask_output=True
@@ -113,6 +126,7 @@ def sam_segment(predictor, input_image, drags, foreground_points=None):
     out_image, new_drags = center_and_square_image(Image.fromarray(out_image, mode="RGBA"), drags)
 
     return out_image, new_drags
+
 
 def get_point(img, sel_pix, evt: gr.SelectData):
     sel_pix.append(evt.index)
@@ -136,10 +150,12 @@ def get_point(img, sel_pix, evt: gr.SelectData):
             points = []
     return img if isinstance(img, np.ndarray) else np.array(img)
 
+
 def clear_drag():
     return []
 
-def preprocess_image(SAM_predictor, img, chk_group, drags):
+
+def preprocess_image(img, chk_group, drags):
     if img is None:
         gr.Warning("No image is specified. Please specify an image before preprocessing.")
         return None, drags
@@ -157,7 +173,6 @@ def preprocess_image(SAM_predictor, img, chk_group, drags):
         img_np = np.array(img)
         rgb_img = img_np[..., :3]
         img, new_drags = sam_segment(
-            SAM_predictor,
             rgb_img,
             drags,
             foreground_points=foreground_points,
@@ -173,8 +188,6 @@ def preprocess_image(SAM_predictor, img, chk_group, drags):
 
 
 def single_image_sample(
-    model,
-    diffusion,
     x_cond,
     x_cond_clip,
     rel,
@@ -183,7 +196,6 @@ def single_image_sample(
     drags,
     hidden_cls,
     num_steps=50,
-    vae=None,
 ):
     z = torch.randn(2, 4, 32, 32).to("cuda")
 
@@ -231,15 +243,10 @@ def single_image_sample(
 
 
 @spaces.GPU(duration=20)
-def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion, img_cond, seed, cfg_scale, drags_list):
+def generate_image(img_cond, seed, cfg_scale, drags_list):
     if img_cond is None:
         gr.Warning("Please preprocess the image first.")
         return None
-
-    model = model.to("cuda")
-    vae = vae.to("cuda")
-    clip_model = clip_model.to("cuda")
-    clip_vit = clip_vit.to("cuda")
 
     with torch.no_grad():
         torch.manual_seed(seed)
@@ -279,8 +286,6 @@ def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion,
                 break
 
         return single_image_sample(
-            model.to("cuda"),
-            diffusion,
             x_cond,
             cond_clip_features,
             rel,
@@ -289,21 +294,8 @@ def generate_image(model, image_processor, vae, clip_model, clip_vit, diffusion,
             drags,
             cls_embedding,
             num_steps=50,
-            vae=vae,
         )
 
-
-sam_predictor = sam_init()
-model = model_init()
-
-vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-ema").to('cuda')
-clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to('cuda')
-clip_vit = CLIPVisionModel.from_pretrained("openai/clip-vit-large-patch14").to('cuda')
-image_processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
-diffusion = create_diffusion(
-    timestep_respacing="",
-    learn_sigma=False,
-)
 
 with gr.Blocks(title=TITLE) as demo:
     gr.Markdown("# " + DESCRIPTION)
@@ -378,7 +370,7 @@ with gr.Blocks(title=TITLE) as demo:
                 value="Preprocess Input Image",
             )
             preprocess_button.click(
-                fn=partial(preprocess_image, sam_predictor),
+                fn=preprocess_image,
                 inputs=[input_image, preprocess_chk_group, drags],
                 outputs=[processed_image, drags],
                 queue=True,
@@ -407,7 +399,7 @@ with gr.Blocks(title=TITLE) as demo:
                 value="Generate Image",
             )
             generate_button.click(
-                fn=partial(generate_image, model, image_processor, vae, clip_model, clip_vit, diffusion),
+                fn=generate_image,
                 inputs=[processed_image, seed, cfg_scale, drags],
                 outputs=[generated_image],
             )
